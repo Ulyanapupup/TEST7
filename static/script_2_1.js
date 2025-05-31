@@ -8,6 +8,20 @@ let otherPlayer = null;
 // Подключаемся к игровой комнате
 socket.emit('join_game_room', { room, session_id: sessionId });
 
+// В начале файла добавьте
+socket.on('connect', () => {
+  console.log('Connected to WebSocket server');
+});
+
+// И измените функцию confirmLeave
+function confirmLeave() {
+  if (confirm('Вы уверены, что хотите покинуть игру? Это завершит игру для всех участников.')) {
+    socket.emit('leave_game', { room, session_id: sessionId });
+    // Добавьте перенаправление сразу после отправки события
+    window.location.href = `/game?room=${room}`;
+  }
+}
+
 // Обработчики событий
 socket.on('role_assigned', (data) => {
   if (data.session_id === sessionId) {

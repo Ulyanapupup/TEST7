@@ -63,8 +63,14 @@
     window.session_id = "{{ session['session_id'] }}";
     window.room = "{{ room }}";
   </script>
-
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script src="{{ url_for('static', filename='script_2_1.js') }}"></script>
+  
+  <!-- В конце body перед закрывающим тегом -->
+	<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+	<script>
+	  // Убедитесь, что переменные определены
+	  window.session_id = "{{ session['session_id'] }}";
+	  window.room = "{{ room }}";
+	</script>
+	<script src="{{ url_for('static', filename='script_2_1.js') }}"></script>
 </body>
 </html>

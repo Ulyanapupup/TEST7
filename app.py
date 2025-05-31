@@ -1,6 +1,6 @@
 import eventlet
 eventlet.monkey_patch()
-
+creator
 import os
 import uuid
 import random
@@ -135,6 +135,7 @@ def game():
         # Создаём новую комнату, первый игрок - создатель
         rooms[room] = {
             'players': set(),
+            'roles': {},
             'creator': session_id,
             'mode': None
         }
@@ -158,6 +159,7 @@ def on_join(data):
     if room not in rooms:
         rooms[room] = {
             'players': set(),
+            'roles': {},
             'creator': session_id,
             'mode': None
         }
@@ -240,6 +242,7 @@ def handle_join_game_room(data):
     if 'game_rooms' not in rooms[room]:
         rooms[room]['game_rooms'] = {
             'players': {},
+            'roles': {},
             'started': False
         }
     
@@ -256,20 +259,50 @@ def handle_select_role(data):
     session_id = data['session_id']
     role = data['role']
     
-    # Проверяем, что роль не занята
-    for pid, existing_role in rooms[room]['game_rooms']['players'].items():
-        if existing_role == role and pid != session_id:
+    if room not in rooms:
+        emit('error', {'message': 'Комната не существует'}, to=session_id)
+        return
+    
+    # Проверяем, что роль не занята другим игроком
+    for player_id, player_role in rooms[room].get('roles', {}).items():
+        if player_role == role and player_id != session_id:
             emit('role_taken', {'role': role}, to=session_id)
             return
     
-    # Сохраняем роль
-    rooms[room]['game_rooms']['players'][session_id] = role
+    # Сохраняем роль игрока
+    if 'roles' not in rooms[room]:
+        rooms[room]['roles'] = {}
+    rooms[room]['roles'][session_id] = role
     
-    # Уведомляем всех игроков
+    # Уведомляем всех в комнате о выборе роли
     emit('role_assigned', {
         'session_id': session_id,
         'role': role
     }, room=room)
+
+@socketio.on('leave_game')
+def handle_leave_game(data):
+    room = data['room']
+    session_id = data['session_id']
+    
+    if room in rooms:
+        # Удаляем игрока из комнаты
+        if 'players' in rooms[room] and session_id in rooms[room]['players']:
+            rooms[room]['players'].remove(session_id)
+        
+        # Удаляем его роль, если есть
+        if 'roles' in rooms[room] and session_id in rooms[room]['roles']:
+            del rooms[room]['roles'][session_id]
+        
+        # Уведомляем других игроков
+        emit('player_left', {'session_id': session_id}, room=room)
+        
+        # Если комната пуста, удаляем её
+        if 'players' in rooms[room] and not rooms[room]['players']:
+            del rooms[room]
+        
+        # Отправляем команду на выход всем игрокам
+        emit('force_leave', {}, room=room)
 
 @socketio.on('start_game')
 def handle_start_game(data):
@@ -286,19 +319,23 @@ def handle_leave_game(data):
     room = data['room']
     session_id = data['session_id']
     
-    if room in rooms and 'game_rooms' in rooms[room]:
-        # Удаляем игрока
-        if session_id in rooms[room]['game_rooms']['players']:
-            del rooms[room]['game_rooms']['players'][session_id]
+    if room in rooms:
+        # Удаляем игрока из комнаты
+        if 'players' in rooms[room] and session_id in rooms[room]['players']:
+            rooms[room]['players'].remove(session_id)
+        
+        # Удаляем его роль, если есть
+        if 'roles' in rooms[room] and session_id in rooms[room]['roles']:
+            del rooms[room]['roles'][session_id]
         
         # Уведомляем других игроков
-        emit('player_left', {}, room=room)
+        emit('player_left', {'session_id': session_id}, room=room)
         
-        # Если комната пуста - очищаем
-        if not rooms[room]['game_rooms']['players']:
-            del rooms[room]['game_rooms']
+        # Если комната пуста, удаляем её
+        if 'players' in rooms[room] and not rooms[room]['players']:
+            del rooms[room]
         
-        # Принудительно выходим для всех
+        # Отправляем команду на выход всем игрокам
         emit('force_leave', {}, room=room)
 
 
