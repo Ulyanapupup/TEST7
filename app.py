@@ -267,18 +267,25 @@ def handle_select_role(data):
     if 'roles' not in rooms[room]:
         rooms[room]['roles'] = {}
     
+    # Удаляем предыдущую роль этого игрока (если была)
+    for r, sid in list(rooms[room]['roles'].items()):
+        if sid == session_id:
+            del rooms[room]['roles'][r]
+    
     # Проверяем, что роль не занята другим игроком
-    for existing_role, existing_id in rooms[room]['roles'].items():
-        if existing_role == role and existing_id != session_id:
-            emit('role_taken', {'role': role}, to=session_id)
-            return
+    if role in rooms[room]['roles']:
+        emit('role_taken', {'role': role}, to=session_id)
+        return
     
     # Сохраняем роль игрока
     rooms[room]['roles'][role] = session_id
+    print(f"Игрок {session_id} выбрал роль {role} в комнате {room}")
     
-    # Отправляем обновление ролей всем в комнате
-    emit('roles_update', {'roles': rooms[room]['roles']}, room=room)
-    print(f"Роли в комнате {room}: {rooms[room]['roles']}")
+    # Отправляем обновление всем игрокам в комнате
+    emit('role_update', {
+        'roles': rooms[room]['roles'],
+        'your_role': role if session_id == rooms[room]['roles'].get(role) else None
+    }, room=room)
     
 @socketio.on('choose_role')
 def handle_choose_role(data):

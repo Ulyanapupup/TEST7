@@ -2,170 +2,101 @@ const socket = io();
 const room = window.room;
 const sessionId = window.session_id;
 
-let selectedRole = null;
-let otherPlayer = null;
+let myRole = null;
+let opponentRole = null;
 
-// Подключаемся к игровой комнате
+// Подключение к комнате
 socket.emit('join_game_room', { room, session_id: sessionId });
 
-// В начале файла добавьте
-socket.on('connect', () => {
-  console.log('Connected to WebSocket server');
-});
-
-// И измените функцию confirmLeave
-function confirmLeave() {
-  if (confirm('Вы уверены, что хотите покинуть игру? Это завершит игру для всех участников.')) {
-    socket.emit('leave_game', { room, session_id: sessionId });
-    // Добавьте перенаправление сразу после отправки события
-    window.location.href = `/game?room=${room}`;
-  }
-}
-
 // Обработчики событий
-socket.on('role_assigned', (data) => {
-  console.log('Role assigned:', data);
-  if (data.session_id === sessionId) {
-    selectedRole = data.role;
-    updateRoleUI();
-    document.getElementById('status-message').textContent = `Вы выбрали роль: ${getRoleName(data.role)}`;
-  } else {
-    otherPlayer = {
-      id: data.session_id,
-      role: data.role
-    };
-    document.getElementById('status-message').textContent = 
-      `Другой игрок выбрал роль: ${getRoleName(data.role)}`;
-  }
-  checkStartConditions();
-});
-
-socket.on('roles_update', (data) => {
-  console.log('Roles updated:', data);
-  // Обрабатываем обновление всех ролей
-  for (const [role, playerId] of Object.entries(data.roles)) {
-    if (playerId === sessionId) {
-      selectedRole = role;
-      updateRoleUI();
-    } else if (playerId) {
-      otherPlayer = {
-        id: playerId,
-        role: role
-      };
+socket.on('role_update', (data) => {
+    console.log('Получено обновление ролей:', data);
+    
+    // Обновляем свою роль
+    if (data.your_role) {
+        myRole = data.your_role;
+        document.getElementById('status-message').textContent = `Вы выбрали роль: ${getRoleName(myRole)}`;
     }
-  }
-  checkStartConditions();
-});
-
-socket.on('role_chosen', function(data) {
-  console.log("Получено событие role_chosen", data);
-
-  if (data.session_id === sessionId) return; // Мы уже знаем свою роль
-
-  otherPlayer = {
-    id: data.session_id,
-    role: data.role
-  };
-
-  document.getElementById('status-message').textContent = 
-    `Другой игрок выбрал роль: ${getRoleName(data.role)}`;
-
-  checkStartConditions();
+    
+    // Находим роль противника
+    opponentRole = Object.keys(data.roles).find(role => 
+        data.roles[role] && data.roles[role] !== sessionId
+    );
+    
+    updateUI();
 });
 
 socket.on('role_taken', (data) => {
-  alert(`Роль "${getRoleName(data.role)}" уже занята другим игроком!`);
+    alert(`Роль "${getRoleName(data.role)}" уже занята!`);
 });
 
 socket.on('game_started', () => {
-  document.getElementById('status-message').textContent = 'Игра началась!';
-  // Здесь будет переход к игровому процессу
+    if (myRole === 'creator') {
+        window.location.href = `/game_creator?room=${room}`;
+    } else {
+        window.location.href = `/game_guesser?room=${room}`;
+    }
 });
 
 socket.on('player_left', () => {
-  if (confirm('Другой игрок покинул игру. Вернуться в комнату?')) {
+    alert('Другой игрок покинул игру. Вы будете перенаправлены в комнату.');
     window.location.href = `/game?room=${room}`;
-  }
-});
-
-socket.on('force_leave', () => {
-  window.location.href = `/game?room=${room}`;
 });
 
 // Функции
 function getRoleName(role) {
-  return role === 'guesser' ? 'Угадывающий' : 'Загадывающий';
+    return role === 'guesser' ? 'Угадывающий' : 'Загадывающий';
 }
 
 function chooseRole(role) {
-  console.log('Нажата кнопка выбора роли:', role);
-  if (selectedRole) {
-    alert(`Вы уже выбрали роль: ${getRoleName(selectedRole)}`);
-    return;
-  }
-  socket.emit('select_role', { room, session_id: sessionId, role });
-}
-
-function checkStartConditions() {
-  const startBtn = document.getElementById('start-game');
-  if (selectedRole && otherPlayer && otherPlayer.role && 
-      selectedRole !== otherPlayer.role) {
-    startBtn.disabled = false;
-    startBtn.textContent = 'Играть';
-  } else {
-    startBtn.disabled = true;
-    startBtn.textContent = selectedRole ? 'Ожидаем выбор другого игрока' : 'Выберите роль';
-  }
+    if (myRole) {
+        alert(`Вы уже выбрали роль ${getRoleName(myRole)}`);
+        return;
+    }
+    socket.emit('select_role', { room, session_id: sessionId, role });
 }
 
 function startGame() {
-  if (selectedRole && otherPlayer && selectedRole !== otherPlayer.role) {
-    socket.emit('start_game', { room });
-  }
-}
-
-function confirmLeave() {
-  if (confirm('Вы уверены, что хотите покинуть игру? Это завершит игру для всех участников.')) {
-    socket.emit('leave_game', { room, session_id: sessionId });
-  }
-}
-
-// Обработка выхода из игры
-function leaveGame() {
-    if (confirm('Вы уверены, что хотите покинуть игру?')) {
-        socket.emit('leave_game', { 
-            room: window.room, 
-            session_id: window.session_id 
-        });
-        window.location.href = `/game?room=${window.room}`;  // ✅ Переход назад
+    if (myRole && opponentRole) {
+        socket.emit('start_game', { room });
+    } else {
+        alert('Не все роли выбраны!');
     }
 }
 
-
-function updateRoleUI() {
-  document.querySelectorAll('.role-button').forEach(btn => {
-    btn.classList.remove('selected');
-    btn.disabled = false;
-  });
-  
-  if (selectedRole) {
-    document.getElementById(`role-${selectedRole}`).classList.add('selected');
-    document.getElementById(`role-${selectedRole}`).disabled = true;
-  }
-  
-  if (otherPlayer && otherPlayer.role) {
-    document.getElementById(`role-${otherPlayer.role}`).disabled = true;
-  }
+function updateUI() {
+    // Обновляем кнопки ролей
+    document.querySelectorAll('.role-button').forEach(btn => {
+        btn.classList.remove('selected');
+        btn.disabled = false;
+    });
+    
+    if (myRole) {
+        document.getElementById(`role-${myRole}`).classList.add('selected');
+        document.getElementById(`role-${myRole}`).disabled = true;
+    }
+    
+    if (opponentRole) {
+        document.getElementById(`role-${opponentRole}`).disabled = true;
+        document.getElementById('status-message').textContent += 
+            `\nДругой игрок выбрал роль: ${getRoleName(opponentRole)}`;
+    }
+    
+    // Активируем кнопку старта если обе роли выбраны
+    document.getElementById('start-game').disabled = !(myRole && opponentRole);
 }
 
+function leaveGame() {
+    if (confirm('Вы уверены, что хотите покинуть игру?')) {
+        socket.emit('leave_game', { room, session_id: sessionId });
+        window.location.href = `/game?room=${room}`;
+    }
+}
 
-// Обработка команды на выход
-socket.on('force_leave', () => {
-    window.location.href = `/game?room=${window.room}`;
-});
-
-socket.on('player_left', (data) => {
-    console.log(`Игрок ${data.session_id} покинул игру`);
-    alert('Другой игрок покинул игру. Вы будете перенаправлены.');
-    window.location.href = `/game?room=${window.room}`;
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('role-guesser').addEventListener('click', () => chooseRole('guesser'));
+    document.getElementById('role-creator').addEventListener('click', () => chooseRole('creator'));
+    document.getElementById('start-game').addEventListener('click', startGame);
+    document.getElementById('leave-game').addEventListener('click', leaveGame);
 });
