@@ -24,6 +24,7 @@ function confirmLeave() {
 
 // Обработчики событий
 socket.on('role_assigned', (data) => {
+  console.log('Role assigned:', data);
   if (data.session_id === sessionId) {
     selectedRole = data.role;
     updateRoleUI();
@@ -35,6 +36,23 @@ socket.on('role_assigned', (data) => {
     };
     document.getElementById('status-message').textContent = 
       `Другой игрок выбрал роль: ${getRoleName(data.role)}`;
+  }
+  checkStartConditions();
+});
+
+socket.on('roles_update', (data) => {
+  console.log('Roles updated:', data);
+  // Обрабатываем обновление всех ролей
+  for (const [role, playerId] of Object.entries(data.roles)) {
+    if (playerId === sessionId) {
+      selectedRole = role;
+      updateRoleUI();
+    } else if (playerId) {
+      otherPlayer = {
+        id: playerId,
+        role: role
+      };
+    }
   }
   checkStartConditions();
 });
@@ -88,25 +106,15 @@ function chooseRole(role) {
   socket.emit('select_role', { room, session_id: sessionId, role });
 }
 
-function updateRoleUI() {
-  document.querySelectorAll('.role-button').forEach(btn => {
-    btn.classList.remove('selected');
-  });
-  
-  if (selectedRole === 'guesser') {
-    document.getElementById('role-guesser').classList.add('selected');
-  } else if (selectedRole === 'creator') {
-    document.getElementById('role-creator').classList.add('selected');
-  }
-}
-
 function checkStartConditions() {
   const startBtn = document.getElementById('start-game');
   if (selectedRole && otherPlayer && otherPlayer.role && 
       selectedRole !== otherPlayer.role) {
     startBtn.disabled = false;
+    startBtn.textContent = 'Играть';
   } else {
     startBtn.disabled = true;
+    startBtn.textContent = selectedRole ? 'Ожидаем выбор другого игрока' : 'Выберите роль';
   }
 }
 
@@ -131,6 +139,23 @@ function leaveGame() {
         });
         window.location.href = `/game?room=${window.room}`;  // ✅ Переход назад
     }
+}
+
+
+function updateRoleUI() {
+  document.querySelectorAll('.role-button').forEach(btn => {
+    btn.classList.remove('selected');
+    btn.disabled = false;
+  });
+  
+  if (selectedRole) {
+    document.getElementById(`role-${selectedRole}`).classList.add('selected');
+    document.getElementById(`role-${selectedRole}`).disabled = true;
+  }
+  
+  if (otherPlayer && otherPlayer.role) {
+    document.getElementById(`role-${otherPlayer.role}`).disabled = true;
+  }
 }
 
 

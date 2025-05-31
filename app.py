@@ -263,22 +263,22 @@ def handle_select_role(data):
         emit('error', {'message': 'Комната не существует'}, to=session_id)
         return
     
+    # Инициализация структуры roles если её нет
+    if 'roles' not in rooms[room]:
+        rooms[room]['roles'] = {}
+    
     # Проверяем, что роль не занята другим игроком
-    for player_id, player_role in rooms[room].get('roles', {}).items():
-        if player_role == role and player_id != session_id:
+    for existing_role, existing_id in rooms[room]['roles'].items():
+        if existing_role == role and existing_id != session_id:
             emit('role_taken', {'role': role}, to=session_id)
             return
     
     # Сохраняем роль игрока
-    if 'roles' not in rooms[room]:
-        rooms[room]['roles'] = {}
-    rooms[room]['roles'][session_id] = role
+    rooms[room]['roles'][role] = session_id
     
-    # Уведомляем всех в комнате о выборе роли
-    emit('role_assigned', {
-        'session_id': session_id,
-        'role': role
-    }, room=room)
+    # Отправляем обновление ролей всем в комнате
+    emit('roles_update', {'roles': rooms[room]['roles']}, room=room)
+    print(f"Роли в комнате {room}: {rooms[room]['roles']}")
     
 @socketio.on('choose_role')
 def handle_choose_role(data):
@@ -380,7 +380,6 @@ def handle_leave_game(data):
         else:
             # Только оставшимся игрокам отправляем принудительный выход
             emit('force_leave', {}, room=room, include_self=False)
-
 
 
 if __name__ == '__main__':
