@@ -286,8 +286,10 @@ def handle_choose_role(data):
     session_id = data['session_id']
     role = data['role']
     
-    if room not in rooms:
-        emit('error', {'message': 'Комната не существует'}, to=session_id)
+    if room in rooms:
+        rooms[room]['roles'][session_id] = role
+        print(f"[SERVER] Игрок {session_id} выбрал роль {role} в комнате {room}")
+        emit('role_chosen', {'session_id': session_id, 'role': role}, room=room)
         return
     
     # Инициализируем структуру roles если её нет

@@ -39,6 +39,22 @@ socket.on('role_assigned', (data) => {
   checkStartConditions();
 });
 
+socket.on('role_chosen', function(data) {
+  console.log("Получено событие role_chosen", data);
+
+  if (data.session_id === sessionId) return; // Мы уже знаем свою роль
+
+  otherPlayer = {
+    id: data.session_id,
+    role: data.role
+  };
+
+  document.getElementById('status-message').textContent = 
+    `Другой игрок выбрал роль: ${getRoleName(data.role)}`;
+
+  checkStartConditions();
+});
+
 socket.on('role_taken', (data) => {
   alert(`Роль "${getRoleName(data.role)}" уже занята другим игроком!`);
 });
