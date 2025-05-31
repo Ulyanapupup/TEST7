@@ -1,6 +1,6 @@
 import eventlet
 eventlet.monkey_patch()
-
+sid
 import os
 import uuid
 import random
@@ -266,7 +266,7 @@ def handle_select_role(data):
         emit('role_taken', {'role': role}, to=session_id)
         return
     
-    # Удаляем игрока из другой роли (если он меняет выбор)
+    # Удаляем игрока из других ролей (если он меняет выбор)
     for r in ['guesser', 'creator']:
         if room_roles[room][r] == session_id:
             room_roles[room][r] = None
