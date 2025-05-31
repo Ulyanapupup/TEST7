@@ -10,45 +10,43 @@
       font-family: Arial, sans-serif;
     }
     .role-button {
-      padding: 10px 20px;
-      margin: 10px;
-      font-size: 16px;
-      cursor: pointer;
-      border: 2px solid white;
-      background-color: darkred;
-      color: white;
-    }
+	  padding: 10px 20px;
+	  margin: 10px;
+	  font-size: 16px;
+	  cursor: pointer;
+	  border: 2px solid white;
+	  background-color: darkred;
+	  color: white;
+	  transition: all 0.3s;
+	}
+
+	.role-button.selected {
+	  background-color: white;
+	  color: red;
+	  font-weight: bold;
+	}
+
 	.role-button:disabled {
-	  opacity: 0.6;
+	  background-color: #500;
+	  color: #999;
 	  cursor: not-allowed;
 	}
-    .role-button.selected {
-      background-color: white;
-      color: red;
-      font-weight: bold;
-    }
-    #start-game:disabled {
-      background-color: gray;
-      cursor: not-allowed;
-    }
-    #status-message {
-      margin: 20px 0;
-      font-size: 18px;
-      min-height: 50px;
-    }
-	#role-guesser, #role-creator {
-        padding: 10px 20px;
-        margin: 5px;
-        cursor: pointer;
-    }
-    #start-game {
-        padding: 10px 20px;
-        margin-top: 20px;
-        background-color: green;
-        color: white;
-        border: none;
-        cursor: pointer;
-    }
+
+	#start-game {
+	  padding: 15px 30px;
+	  font-size: 18px;
+	  background-color: #4CAF50;
+	  color: white;
+	  border: none;
+	  border-radius: 5px;
+	  cursor: pointer;
+	  margin-top: 20px;
+	}
+
+	#start-game:disabled {
+	  background-color: #cccccc;
+	  cursor: not-allowed;
+	}
   </style>
 </head>
 <body>

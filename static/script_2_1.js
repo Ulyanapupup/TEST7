@@ -9,16 +9,13 @@ let opponentRole = null;
 socket.emit('join_game_room', { room, session_id: sessionId });
 
 // Обработчики событий
-socket.on('role_update', (data) => {
-    console.log('Получено обновление ролей:', data);
+socket.on('roles_updated', (data) => {
+    console.log('Обновление ролей:', data);
     
-    // Обновляем свою роль
-    if (data.your_role) {
-        myRole = data.your_role;
-        document.getElementById('status-message').textContent = `Вы выбрали роль: ${getRoleName(myRole)}`;
-    }
+    // Определяем свою роль
+    myRole = Object.keys(data.roles).find(role => data.roles[role] === sessionId);
     
-    // Находим роль противника
+    // Определяем роль оппонента
     opponentRole = Object.keys(data.roles).find(role => 
         data.roles[role] && data.roles[role] !== sessionId
     );
@@ -27,7 +24,7 @@ socket.on('role_update', (data) => {
 });
 
 socket.on('role_taken', (data) => {
-    alert(`Роль "${getRoleName(data.role)}" уже занята!`);
+    alert(`Роль "${getRoleName(data.role)}" уже занята другим игроком!`);
 });
 
 socket.on('game_started', () => {
@@ -43,46 +40,49 @@ socket.on('player_left', () => {
     window.location.href = `/game?room=${room}`;
 });
 
-// Функции
+// Вспомогательные функции
 function getRoleName(role) {
     return role === 'guesser' ? 'Угадывающий' : 'Загадывающий';
 }
 
 function chooseRole(role) {
-    if (myRole) {
-        alert(`Вы уже выбрали роль ${getRoleName(myRole)}`);
-        return;
-    }
-    socket.emit('select_role', { room, session_id: sessionId, role });
+    if (myRole === role) return;
+    
+    socket.emit('select_role', { 
+        room: room, 
+        session_id: sessionId, 
+        role: role 
+    });
 }
 
 function startGame() {
     if (myRole && opponentRole) {
         socket.emit('start_game', { room });
     } else {
-        alert('Не все роли выбраны!');
+        alert('Оба игрока должны выбрать разные роли!');
     }
 }
 
 function updateUI() {
     // Обновляем кнопки ролей
-    document.querySelectorAll('.role-button').forEach(btn => {
-        btn.classList.remove('selected');
-        btn.disabled = false;
-    });
+    const guesserBtn = document.getElementById('role-guesser');
+    const creatorBtn = document.getElementById('role-creator');
     
-    if (myRole) {
-        document.getElementById(`role-${myRole}`).classList.add('selected');
-        document.getElementById(`role-${myRole}`).disabled = true;
-    }
+    guesserBtn.classList.toggle('selected', myRole === 'guesser');
+    creatorBtn.classList.toggle('selected', myRole === 'creator');
     
+    // Блокируем занятые роли
+    guesserBtn.disabled = opponentRole === 'guesser';
+    creatorBtn.disabled = opponentRole === 'creator';
+    
+    // Обновляем статус
+    let statusMessage = myRole ? `Вы: ${getRoleName(myRole)}` : 'Выберите роль';
     if (opponentRole) {
-        document.getElementById(`role-${opponentRole}`).disabled = true;
-        document.getElementById('status-message').textContent += 
-            `\nДругой игрок выбрал роль: ${getRoleName(opponentRole)}`;
+        statusMessage += ` | Оппонент: ${getRoleName(opponentRole)}`;
     }
+    document.getElementById('status-message').textContent = statusMessage;
     
-    // Активируем кнопку старта если обе роли выбраны
+    // Активируем кнопку старта
     document.getElementById('start-game').disabled = !(myRole && opponentRole);
 }
 
