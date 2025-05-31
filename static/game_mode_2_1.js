@@ -3,7 +3,7 @@ const roomCode = window.roomCode;
 const sessionId = window.sessionId;
 
 let selectedRole = null;
-let playersReady = 0;
+let otherPlayerRole = null;
 
 // Инициализация подключения к комнате
 socket.emit('join_game_room', { room: roomCode, session_id: sessionId });
@@ -14,11 +14,21 @@ socket.on('role_assigned', (data) => {
     selectedRole = data.role;
     updateRoleUI();
   }
+  if (data.session_id !== sessionId) {
+    otherPlayerRole = data.role;
+    updatePlayersStatus();
+  }
 });
 
 socket.on('roles_updated', (data) => {
-  updatePlayersStatus(data.roles);
-  checkStartConditions(data.roles);
+  // Обновляем информацию о других игроках
+  for (const [playerId, role] of Object.entries(data.roles)) {
+    if (playerId !== sessionId) {
+      otherPlayerRole = role;
+    }
+  }
+  updatePlayersStatus();
+  checkStartConditions();
 });
 
 socket.on('game_started', () => {
@@ -26,8 +36,7 @@ socket.on('game_started', () => {
   document.getElementById('startGameBtn').style.display = 'none';
 });
 
-socket.on('player_left', () => {
-  alert('Другой игрок покинул игру. Возвращаемся в комнату...');
+socket.on('force_leave', () => {
   window.location.href = `/game?room=${roomCode}`;
 });
 
@@ -61,30 +70,22 @@ function updateRoleUI() {
   }
 }
 
-function updatePlayersStatus(roles) {
+function updatePlayersStatus() {
   const statusElement = document.getElementById('gameStatus');
-  let statusText = '';
   
-  for (const [playerId, role] of Object.entries(roles)) {
-    if (playerId === sessionId) continue;
-    
-    statusText += `Игрок ${playerId.substring(0, 5)}... выбрал роль: `;
-    statusText += role === 'hider' ? 'Загадывающий' : 'Угадывающий';
-    statusText += '\n';
+  if (otherPlayerRole) {
+    statusElement.textContent = `Другой игрок выбрал роль: ${
+      otherPlayerRole === 'hider' ? 'Загадывающий' : 'Угадывающий'
+    }`;
+  } else {
+    statusElement.textContent = 'Другой игрок еще не выбрал роль';
   }
-  
-  statusElement.textContent = statusText || 'Другой игрок еще не выбрал роль';
 }
 
-function checkStartConditions(roles) {
+function checkStartConditions() {
   const startBtn = document.getElementById('startGameBtn');
-  const rolesList = Object.values(roles);
   
-  // Проверяем, что есть оба типа ролей
-  const hasHider = rolesList.includes('hider');
-  const hasGuesser = rolesList.includes('guesser');
-  
-  if (hasHider && hasGuesser && rolesList.length === 2) {
+  if (selectedRole && otherPlayerRole && selectedRole !== otherPlayerRole) {
     startBtn.style.display = 'inline-block';
   } else {
     startBtn.style.display = 'none';
@@ -98,12 +99,12 @@ function startGame() {
 function confirmLeave() {
   if (confirm('Вы уверены, что хотите покинуть игру? Это завершит игру для всех участников.')) {
     socket.emit('leave_game', { room: roomCode, session_id: sessionId });
-    window.location.href = `/game?room=${roomCode}`;
   }
 }
 
 // Инициализация UI
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('guesserBtn').textContent = 'Угадывающий';
-  document.getElementById('hiderBtn').textContent = 'Загадывающий';
+  updateRoleUI();
+  updatePlayersStatus();
+  checkStartConditions();
 });

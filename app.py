@@ -230,14 +230,12 @@ def handle_message(msg):
     
     
     
-# Добавьте в app.py новые обработчики
 @socketio.on('join_game_room')
 def on_join_game_room(data):
     room = data['room']
     session_id = data['session_id']
     join_room(room)
     
-    # Инициализируем данные игры, если их нет
     if 'games' not in rooms[room]:
         rooms[room]['games'] = {
             'mode_2_1': {
@@ -246,10 +244,12 @@ def on_join_game_room(data):
             }
         }
     
-    # Отправляем текущие роли всем игрокам
-    emit('roles_updated', {
-        'roles': rooms[room]['games']['mode_2_1']['roles']
-    }, room=room)
+    # Отправляем текущее состояние ролей новому игроку
+    for player_id, role in rooms[room]['games']['mode_2_1']['roles'].items():
+        emit('role_assigned', {
+            'session_id': player_id,
+            'role': role
+        }, to=session_id)
 
 @socketio.on('select_role')
 def on_select_role(data):
@@ -257,24 +257,30 @@ def on_select_role(data):
     session_id = data['session_id']
     role = data['role']
     
-    # Проверяем, что роль еще не занята другим игроком
     current_roles = rooms[room]['games']['mode_2_1']['roles']
-    if role in current_roles.values() and session_id not in current_roles:
-        emit('error', {'message': 'Эта роль уже занята другим игроком'})
-        return
     
-    # Сохраняем роль игрока
-    rooms[room]['games']['mode_2_1']['roles'][session_id] = role
+    # Проверяем, что роль еще не занята другим игроком
+    if role in current_roles.values():
+        other_player_id = next(
+            (pid for pid, r in current_roles.items() if r == role),
+            None
+        )
+        if other_player_id != session_id:
+            emit('error', {'message': 'Эта роль уже занята другим игроком'})
+            return
     
-    # Подтверждаем выбор роли
+    # Обновляем роль игрока
+    current_roles[session_id] = role
+    
+    # Уведомляем всех игроков об изменении ролей
     emit('role_assigned', {
         'session_id': session_id,
         'role': role
-    })
+    }, room=room)
     
-    # Обновляем роли у всех игроков
+    # Отправляем полное обновление ролей
     emit('roles_updated', {
-        'roles': rooms[room]['games']['mode_2_1']['roles']
+        'roles': current_roles
     }, room=room)
 
 @socketio.on('start_game_request')
@@ -295,14 +301,17 @@ def on_leave_game(data):
     room = data['room']
     session_id = data['session_id']
     
-    if room in rooms:
+    if room in rooms and 'games' in rooms[room]:
         # Удаляем игрока из списка ролей
-        if 'games' in rooms[room] and 'mode_2_1' in rooms[room]['games']:
-            if session_id in rooms[room]['games']['mode_2_1']['roles']:
-                del rooms[room]['games']['mode_2_1']['roles'][session_id]
+        if session_id in rooms[room]['games']['mode_2_1']['roles']:
+            del rooms[room]['games']['mode_2_1']['roles'][session_id]
         
-        # Уведомляем других игроков
-        emit('player_left', {}, room=room)
+        # Уведомляем всех игроков о выходе
+        emit('force_leave', {}, room=room)
+        
+        # Очищаем данные игры, если комната пуста
+        if not rooms[room]['games']['mode_2_1']['roles']:
+            rooms[room]['games']['mode_2_1']['started'] = False
 
 
 if __name__ == '__main__':
