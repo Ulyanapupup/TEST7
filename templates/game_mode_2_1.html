@@ -2,11 +2,63 @@
 <html>
 <head>
   <title>Режим 2.1 (Красный)</title>
-  <style>body { background-color: red; color: white; }</style>
+  <style>
+    body { 
+      background-color: red; 
+      color: white; 
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    .role-selection {
+      margin: 20px auto;
+      padding: 20px;
+      border: 2px solid white;
+      border-radius: 10px;
+      max-width: 500px;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .selected {
+      background-color: darkred;
+      color: white;
+    }
+    #startGameBtn {
+      background-color: green;
+      color: white;
+      font-weight: bold;
+      display: none;
+    }
+    #gameStatus {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
 </head>
 <body>
   <h1>Режим 2.1 (Красный)</h1>
-  <p>Здесь будет ваша игра.</p>
-  <button onclick="window.location.href='/game?room={{ room }}'">Покинуть игру</button>
+  <p>Код комнаты: {{ room }}</p>
+  
+  <div class="role-selection">
+    <h2>Выберите роль</h2>
+    <button id="guesserBtn" onclick="selectRole('guesser')">Угадывающий</button>
+    <button id="hiderBtn" onclick="selectRole('hider')">Загадывающий</button>
+    <p id="roleStatus">Вы еще не выбрали роль</p>
+  </div>
+
+  <button id="startGameBtn" onclick="startGame()">Играть!</button>
+  <p id="gameStatus"></p>
+
+  <button onclick="confirmLeave()">Покинуть игру</button>
+
+  <script>
+    window.roomCode = "{{ room }}";
+    window.sessionId = "{{ session['session_id'] }}";
+  </script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="/static/game_mode_2_1.js"></script>
 </body>
 </html>
