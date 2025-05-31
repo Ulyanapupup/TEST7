@@ -257,8 +257,6 @@ def handle_select_role(data):
     session_id = data['session_id']
     role = data['role']
     
-    print(f"Попытка выбора роли: {session_id} выбирает {role} в {room}")
-    
     if room not in room_roles:
         emit('error', {'message': 'Комната не существует'}, to=session_id)
         return
@@ -280,8 +278,6 @@ def handle_select_role(data):
     emit('roles_updated', {
         'roles': room_roles[room]
     }, room=room)
-    
-    print(f"Обновленные роли в {room}: {room_roles[room]}")
     
 @socketio.on('choose_role')
 def handle_choose_role(data):
