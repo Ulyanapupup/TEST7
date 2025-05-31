@@ -18,6 +18,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 games = {}  # хранилище активных игр для режима 1.2: {game_id: Game}
 
+room_roles = {}  # {room_code: {'guesser': session_id, 'creator': session_id}}
+
 # Хранилище комнат для сетевой игры режимов 2.1 и 2.2
 rooms = {}
 # Формат rooms:
@@ -236,22 +238,18 @@ def handle_message(msg):
 def handle_join_game_room(data):
     room = data['room']
     session_id = data['session_id']
+    
     join_room(room)
     
-    # Инициализация данных игры
-    if 'game_rooms' not in rooms[room]:
-        rooms[room]['game_rooms'] = {
-            'players': {},
-            'roles': {},
-            'started': False
-        }
+    # Инициализация комнаты если её нет
+    if room not in room_roles:
+        room_roles[room] = {'guesser': None, 'creator': None}
     
     # Отправляем текущие роли новому игроку
-    for pid, role in rooms[room]['game_rooms']['players'].items():
-        emit('role_assigned', {
-            'session_id': pid,
-            'role': role
-        }, to=session_id)
+    emit('roles_updated', {
+        'roles': room_roles[room],
+        'your_role': next((role for role, sid in room_roles[room].items() if sid == session_id), None)
+    }, to=session_id)
 
 @socketio.on('select_role')
 def handle_select_role(data):
@@ -259,36 +257,31 @@ def handle_select_role(data):
     session_id = data['session_id']
     role = data['role']
     
-    if room not in rooms:
+    print(f"Попытка выбора роли: {session_id} выбирает {role} в {room}")
+    
+    if room not in room_roles:
         emit('error', {'message': 'Комната не существует'}, to=session_id)
         return
     
-    # Инициализация структур данных
-    if 'roles' not in rooms[room]:
-        rooms[room]['roles'] = {}
-    
-    # Удаляем предыдущую роль этого игрока (если была)
-    for r, sid in list(rooms[room]['roles'].items()):
-        if sid == session_id:
-            del rooms[room]['roles'][r]
-    
     # Проверяем, что роль не занята другим игроком
-    if role in rooms[room]['roles'] and rooms[room]['roles'][role] != session_id:
+    if room_roles[room][role] and room_roles[room][role] != session_id:
         emit('role_taken', {'role': role}, to=session_id)
         return
     
-    # Сохраняем новую роль игрока
-    rooms[room]['roles'][role] = session_id
+    # Удаляем игрока из другой роли (если он меняет выбор)
+    for r in ['guesser', 'creator']:
+        if room_roles[room][r] == session_id:
+            room_roles[room][r] = None
     
-    # Формируем данные для отправки
-    roles_data = {
-        'roles': rooms[room]['roles'],
-        'players': list(rooms[room]['players'])
-    }
+    # Назначаем новую роль
+    room_roles[room][role] = session_id
     
     # Отправляем обновление всем в комнате
-    emit('roles_updated', roles_data, room=room)
-    print(f"Роли обновлены в комнате {room}: {rooms[room]['roles']}")
+    emit('roles_updated', {
+        'roles': room_roles[room]
+    }, room=room)
+    
+    print(f"Обновленные роли в {room}: {room_roles[room]}")
     
 @socketio.on('choose_role')
 def handle_choose_role(data):
@@ -348,18 +341,18 @@ def handle_leave_game(data):
 def handle_start_game(data):
     room = data['room']
     
-    if room not in rooms or 'roles' not in rooms[room]:
-        emit('error', {'message': 'Нельзя начать игру'}, room=room)
+    if room not in room_roles:
+        emit('error', {'message': 'Комната не существует'}, room=room)
         return
     
-    roles = rooms[room]['roles']
+    roles = room_roles[room]
     
     # Проверяем что обе роли заняты разными игроками
-    if len(roles) == 2 and roles.get('guesser') and roles.get('creator') and roles['guesser'] != roles['creator']:
+    if roles['guesser'] and roles['creator'] and roles['guesser'] != roles['creator']:
         emit('game_started', {}, room=room)
     else:
         emit('error', {'message': 'Не все роли распределены'}, room=room)
-
+        
 @socketio.on('leave_game')
 def handle_leave_game(data):
     room = data['room']
