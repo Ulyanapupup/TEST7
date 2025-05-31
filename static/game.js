@@ -1,3 +1,5 @@
+let playersInRoom = 0; // Глобальная переменная
+
 const socket = io();
 
 const roomCode = window.roomCode;
@@ -14,18 +16,15 @@ socket.on('joined', (data) => {
 socket.on('update_player_count', (data) => {
   console.log(`Игроков в комнате: ${data.count}`);
 
-  // Обновляем количество игроков
   playersInRoom = data.count;
-
-  // Обновляем отображение счётчика на странице
   document.getElementById('playerCount').innerText = data.count;
 
-  // Обновляем доступность кнопок выбора режима
   updateModeButtons();
 });
 
 socket.on('start_game', (data) => {
   if (data.room === roomCode) {
+    // Переносим в нужный игровой режим для обоих игроков
     if (data.mode === '2.1') {
       window.location.href = `/game_mode_2_1?room=${roomCode}`;
     } else if (data.mode === '2.2') {
@@ -33,7 +32,6 @@ socket.on('start_game', (data) => {
     }
   }
 });
-
 
 socket.on('error', (data) => {
   alert(data.message);
@@ -56,11 +54,9 @@ function chooseMode(mode) {
 
 function updateModeButtons() {
   const buttons = document.querySelectorAll('.mode-button');
-
   const shouldEnable = isCreator && playersInRoom >= 2;
 
   buttons.forEach(button => {
     button.disabled = !shouldEnable;
   });
 }
-
