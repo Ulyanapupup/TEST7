@@ -231,87 +231,75 @@ def handle_message(msg):
     
     
 @socketio.on('join_game_room')
-def on_join_game_room(data):
+def handle_join_game_room(data):
     room = data['room']
     session_id = data['session_id']
     join_room(room)
     
-    if 'games' not in rooms[room]:
-        rooms[room]['games'] = {
-            'mode_2_1': {
-                'roles': {},
-                'started': False
-            }
+    # Инициализация данных игры
+    if 'game_rooms' not in rooms[room]:
+        rooms[room]['game_rooms'] = {
+            'players': {},
+            'started': False
         }
     
-    # Отправляем текущее состояние ролей новому игроку
-    for player_id, role in rooms[room]['games']['mode_2_1']['roles'].items():
+    # Отправляем текущие роли новому игроку
+    for pid, role in rooms[room]['game_rooms']['players'].items():
         emit('role_assigned', {
-            'session_id': player_id,
+            'session_id': pid,
             'role': role
         }, to=session_id)
 
 @socketio.on('select_role')
-def on_select_role(data):
+def handle_select_role(data):
     room = data['room']
     session_id = data['session_id']
     role = data['role']
     
-    current_roles = rooms[room]['games']['mode_2_1']['roles']
-    
-    # Проверяем, что роль еще не занята другим игроком
-    if role in current_roles.values():
-        other_player_id = next(
-            (pid for pid, r in current_roles.items() if r == role),
-            None
-        )
-        if other_player_id != session_id:
-            emit('error', {'message': 'Эта роль уже занята другим игроком'})
+    # Проверяем, что роль не занята
+    for pid, existing_role in rooms[room]['game_rooms']['players'].items():
+        if existing_role == role and pid != session_id:
+            emit('role_taken', {'role': role}, to=session_id)
             return
     
-    # Обновляем роль игрока
-    current_roles[session_id] = role
+    # Сохраняем роль
+    rooms[room]['game_rooms']['players'][session_id] = role
     
-    # Уведомляем всех игроков об изменении ролей
+    # Уведомляем всех игроков
     emit('role_assigned', {
         'session_id': session_id,
         'role': role
     }, room=room)
-    
-    # Отправляем полное обновление ролей
-    emit('roles_updated', {
-        'roles': current_roles
-    }, room=room)
 
-@socketio.on('start_game_request')
-def on_start_game_request(data):
+@socketio.on('start_game')
+def handle_start_game(data):
     room = data['room']
-    game_data = rooms[room]['games']['mode_2_1']
+    players = rooms[room]['game_rooms']['players']
     
-    # Проверяем условия для старта игры
-    roles = list(game_data['roles'].values())
-    if 'hider' in roles and 'guesser' in roles and len(roles) == 2:
-        game_data['started'] = True
+    # Проверяем условия старта
+    if len(players) == 2 and len(set(players.values())) == 2:
+        rooms[room]['game_rooms']['started'] = True
         emit('game_started', {}, room=room)
-    else:
-        emit('error', {'message': 'Не выполнены условия для старта игры'})
 
 @socketio.on('leave_game')
-def on_leave_game(data):
+def handle_leave_game(data):
     room = data['room']
     session_id = data['session_id']
     
-    if room in rooms and 'games' in rooms[room]:
-        # Удаляем игрока из списка ролей
-        if session_id in rooms[room]['games']['mode_2_1']['roles']:
-            del rooms[room]['games']['mode_2_1']['roles'][session_id]
+    if room in rooms and 'game_rooms' in rooms[room]:
+        # Удаляем игрока
+        if session_id in rooms[room]['game_rooms']['players']:
+            del rooms[room]['game_rooms']['players'][session_id]
         
-        # Уведомляем всех игроков о выходе
+        # Уведомляем других игроков
+        emit('player_left', {}, room=room)
+        
+        # Если комната пуста - очищаем
+        if not rooms[room]['game_rooms']['players']:
+            del rooms[room]['game_rooms']
+        
+        # Принудительно выходим для всех
         emit('force_leave', {}, room=room)
-        
-        # Очищаем данные игры, если комната пуста
-        if not rooms[room]['games']['mode_2_1']['roles']:
-            rooms[room]['games']['mode_2_1']['started'] = False
 
 
 if __name__ == '__main__':
