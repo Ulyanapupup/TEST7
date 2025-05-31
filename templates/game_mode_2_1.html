@@ -23,15 +23,6 @@
       color: red;
       font-weight: bold;
     }
-    #start-game {
-      padding: 10px 30px;
-      font-size: 18px;
-      margin-top: 20px;
-      background-color: green;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
     #start-game:disabled {
       background-color: gray;
       cursor: not-allowed;
@@ -40,6 +31,19 @@
       margin: 20px 0;
       font-size: 18px;
       min-height: 50px;
+    }
+	#role-guesser, #role-creator {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+    }
+    #start-game {
+        padding: 10px 20px;
+        margin-top: 20px;
+        background-color: green;
+        color: white;
+        border: none;
+        cursor: pointer;
     }
   </style>
 </head>
@@ -57,7 +61,7 @@
   
   <button id="start-game" disabled onclick="startGame()">Играть</button>
   
-  <button onclick="confirmLeave()" style="margin-top: 30px;">Покинуть игру</button>
+  <button onclick="leaveGame()">Покинуть игру</button>
 
   <script>
     window.session_id = "{{ session['session_id'] }}";

@@ -104,3 +104,24 @@ function confirmLeave() {
     socket.emit('leave_game', { room, session_id: sessionId });
   }
 }
+
+// Обработка выхода из игры
+function leaveGame() {
+    if (confirm('Вы уверены, что хотите покинуть игру?')) {
+        socket.emit('leave_game', { 
+            room: window.room, 
+            session_id: window.session_id 
+        });
+    }
+}
+
+// Обработка команды на выход
+socket.on('force_leave', () => {
+    window.location.href = `/game?room=${window.room}`;
+});
+
+socket.on('player_left', (data) => {
+    console.log(`Игрок ${data.session_id} покинул игру`);
+    alert('Другой игрок покинул игру. Вы будете перенаправлены.');
+    window.location.href = `/game?room=${window.room}`;
+});
