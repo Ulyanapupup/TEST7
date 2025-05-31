@@ -312,26 +312,34 @@ def handle_leave_game(data):
     room = data['room']
     session_id = data['session_id']
     
+    # Очищаем роли в rooms[room]['roles']
     if room in rooms:
-        # Удаляем игрока из списка игроков
         if 'players' in rooms[room] and session_id in rooms[room]['players']:
             rooms[room]['players'].remove(session_id)
         
-        # Удаляем его роль, если есть
         if 'roles' in rooms[room]:
+            # Удаляем роль игрока из rooms[room]['roles']
             for role, sid in list(rooms[room]['roles'].items()):
                 if sid == session_id:
                     del rooms[room]['roles'][role]
-        
-        # Уведомляем других игроков
-        emit('player_left', {'session_id': session_id}, room=room)
-        
-        # Если комната пуста, удаляем её
-        if 'players' in rooms[room] and not rooms[room]['players']:
-            del rooms[room]
-        
-        # Перенаправляем всех игроков
-        emit('force_leave', {}, room=room)
+    
+    # Очищаем роли в room_roles
+    if room in room_roles:
+        for role in ['guesser', 'creator']:
+            if room_roles[room][role] == session_id:
+                room_roles[room][role] = None
+    
+    # Уведомляем других игроков
+    emit('player_left', {'session_id': session_id}, room=room)
+    
+    # Если комната пуста, удаляем её
+    if room in rooms and 'players' in rooms[room] and not rooms[room]['players']:
+        del rooms[room]
+        if room in room_roles:
+            del room_roles[room]
+    
+    # Перенаправляем всех игроков
+    emit('force_leave', {}, room=room)
 
 @socketio.on('start_game')
 def handle_start_game(data):
@@ -349,37 +357,6 @@ def handle_start_game(data):
     else:
         emit('error', {'message': 'Не все роли распределены'}, room=room)
         
-@socketio.on('leave_game')
-def handle_leave_game(data):
-    room = data['room']
-    session_id = data['session_id']
-    
-    if room in rooms:
-        players = rooms[room].get('players', set())
-        roles = rooms[room].get('roles', {})
-
-        # Удаляем игрока из списка игроков
-        if session_id in players:
-            players.remove(session_id)
-
-        # Удаляем его роль
-        if session_id in roles:
-            del roles[session_id]
-
-        # Обновляем в памяти
-        rooms[room]['players'] = players
-        rooms[room]['roles'] = roles
-
-        # Уведомляем оставшихся игроков, что кто-то вышел
-        emit('player_left', {'session_id': session_id}, room=room)
-
-        # Если игроков больше нет, удаляем комнату
-        if not players:
-            del rooms[room]
-        else:
-            # Только оставшимся игрокам отправляем принудительный выход
-            emit('force_leave', {}, room=room, include_self=False)
-
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
