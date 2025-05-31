@@ -15,11 +15,9 @@ socket.on('joined', (data) => {
 
 socket.on('update_player_count', (data) => {
   console.log(`Игроков в комнате: ${data.count}`);
-
   playersInRoom = data.count;
   document.getElementById('playerCount').innerText = data.count;
-
-  updateModeButtons();
+  updateUI(); // Добавьте этот вызов
 });
 
 socket.on('start_game', (data) => {
@@ -52,6 +50,11 @@ function chooseMode(mode) {
   socket.emit('choose_mode', { room: roomCode, mode: mode });
 }
 
+// Добавьте вызов updateUI при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+  updateUI();
+});
+
 function updateModeButtons() {
   const buttons = document.querySelectorAll('.mode-button');
   const shouldEnable = isCreator && playersInRoom >= 2;
@@ -59,4 +62,19 @@ function updateModeButtons() {
   buttons.forEach(button => {
     button.disabled = !shouldEnable;
   });
+}
+
+function updateUI() {
+  const modeSelection = document.getElementById('modeSelection');
+  const waitingMsg = document.getElementById('waitingForPlayers');
+  
+  if (isCreator) {
+    if (playersInRoom >= 2) {
+      if (modeSelection) modeSelection.style.display = 'block';
+      if (waitingMsg) waitingMsg.style.display = 'none';
+    } else {
+      if (modeSelection) modeSelection.style.display = 'none';
+      if (waitingMsg) waitingMsg.style.display = 'block';
+    }
+  }
 }
