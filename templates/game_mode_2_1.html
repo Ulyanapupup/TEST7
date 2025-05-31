@@ -62,11 +62,6 @@
   <button id="start-game" disabled onclick="startGame()">Играть</button>
   
   <button onclick="leaveGame()">Покинуть игру</button>
-
-  <script>
-    window.session_id = "{{ session['session_id'] }}";
-    window.room = "{{ room }}";
-  </script>
   
   <!-- В конце body перед закрывающим тегом -->
 	<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>

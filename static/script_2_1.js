@@ -64,6 +64,7 @@ function getRoleName(role) {
 }
 
 function chooseRole(role) {
+  console.log('Нажата кнопка выбора роли:', role);
   if (selectedRole) {
     alert(`Вы уже выбрали роль: ${getRoleName(selectedRole)}`);
     return;
@@ -112,8 +113,10 @@ function leaveGame() {
             room: window.room, 
             session_id: window.session_id 
         });
+        window.location.href = `/game?room=${window.room}`;  // ✅ Переход назад
     }
 }
+
 
 // Обработка команды на выход
 socket.on('force_leave', () => {

@@ -354,23 +354,31 @@ def handle_leave_game(data):
     session_id = data['session_id']
     
     if room in rooms:
-        # Удаляем игрока из комнаты
-        if 'players' in rooms[room] and session_id in rooms[room]['players']:
-            rooms[room]['players'].remove(session_id)
-        
-        # Удаляем его роль, если есть
-        if 'roles' in rooms[room] and session_id in rooms[room]['roles']:
-            del rooms[room]['roles'][session_id]
-        
-        # Уведомляем других игроков
+        players = rooms[room].get('players', set())
+        roles = rooms[room].get('roles', {})
+
+        # Удаляем игрока из списка игроков
+        if session_id in players:
+            players.remove(session_id)
+
+        # Удаляем его роль
+        if session_id in roles:
+            del roles[session_id]
+
+        # Обновляем в памяти
+        rooms[room]['players'] = players
+        rooms[room]['roles'] = roles
+
+        # Уведомляем оставшихся игроков, что кто-то вышел
         emit('player_left', {'session_id': session_id}, room=room)
-        
-        # Если комната пуста, удаляем её
-        if 'players' in rooms[room] and not rooms[room]['players']:
+
+        # Если игроков больше нет, удаляем комнату
+        if not players:
             del rooms[room]
-        
-        # Отправляем команду на выход всем игрокам
-        emit('force_leave', {}, room=room)
+        else:
+            # Только оставшимся игрокам отправляем принудительный выход
+            emit('force_leave', {}, room=room, include_self=False)
+
 
 
 if __name__ == '__main__':
